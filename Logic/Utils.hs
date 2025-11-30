@@ -3,8 +3,10 @@ module Logic.Utils where
 import Logic.Types
 import Logic.Circuits (rippleAddN)
 
+
 bits10 = [One, Zero, One, Zero]
 bits5  = reverse $ tail $ reverse bits10
+
 
 -- Takes a decimal integer and produces clean binary output
 int2binIO :: Int -> IO ()

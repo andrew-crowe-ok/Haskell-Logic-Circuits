@@ -23,7 +23,8 @@ menuLoop = do
     putStrLn "2. Convert Binary to Decimal"
     putStrLn "3. Simulate Addition (Decimal Inputs)"
     putStrLn "4. Simulate Addition (Binary Inputs)"
-    putStrLn "5. Exit"
+    putStrLn "5. View Utility Function Reference (Help)"
+    putStrLn "6. Exit"
     
     putStr "> "
     hFlush stdout -- Ensures the ">" appears before waiting for input
@@ -34,7 +35,8 @@ menuLoop = do
         "2" -> runBinToDec >> menuLoop
         "3" -> runDecAdd   >> menuLoop
         "4" -> runBinAdd   >> menuLoop
-        "5" -> putStrLn "Exiting simulation. Goodbye!"
+        "5" -> runHelp     >> menuLoop
+        "6" -> putStrLn "Exiting simulation. Goodbye!"
         _   -> putStrLn "Invalid selection. Please try again." >> menuLoop
 
 
@@ -115,3 +117,70 @@ runBinAdd = do
     
     putStrLn $ "--- Simulation Result ---"
     putStrLn $ inputA ++ " + " ++ inputB ++ " = " ++ resultStr
+    
+    -- Option 5: HELP / Reference Guide
+runHelp :: IO ()
+runHelp = do
+    putStrLn "\n=== UTILITY FUNCTION REFERENCE ==="
+    putStrLn "These functions are available in Logic.Utils for use in GHCi."
+    putStrLn "Note: 'Bit List' implies LSB-First order (e.g., [1, 2, 4...])."
+    putStrLn "------------------------------------------------------------"
+
+    putStrLn "1. int2binIO :: Int -> IO ()"
+    putStrLn "   Takes a decimal integer (e.g., 5) and prints its binary representation."
+    putStrLn "   Usage: int2binIO 5  ->  Prints \"101\""
+    putStrLn ""
+
+    putStrLn "2. int2bit :: Int -> [Bit]"
+    putStrLn "   Converts a decimal integer to a list of Bits."
+    putStrLn "   Usage: int2bit 6  ->  [Zero, One, One]"
+    putStrLn ""
+
+    putStrLn "3. bin2int :: Int -> Int"
+    putStrLn "   Takes an integer resembling binary (digits 1 and 0 only) and"
+    putStrLn "   returns its true decimal value."
+    putStrLn "   Usage: bin2int 101  ->  5"
+    putStrLn ""
+
+    putStrLn "4. binStr2bit :: String -> [Bit]"
+    putStrLn "   Parses a string of '1's and '0's into a Bit list."
+    putStrLn "   Usage: binStr2bit \"110\"  ->  [Zero, One, One]"
+    putStrLn ""
+
+    putStrLn "5. bin2bit :: Int -> [Bit]"
+    putStrLn "   Takes an integer resembling binary, validates it, and converts"
+    putStrLn "   it to a Bit list. Returns [Zero] if invalid."
+    putStrLn "   Usage: bin2bit 110  ->  [Zero, One, One]"
+    putStrLn ""
+
+    putStrLn "6. binAdderIO :: Int -> Int -> IO ()"
+    putStrLn "   Takes two integers resembling binary, adds them using the simulated"
+    putStrLn "   ripple circuit, and prints the result as a binary string."
+    putStrLn "   Usage: binAdderIO 10 11  ->  Prints \"101\""
+    putStrLn ""
+
+    putStrLn "7. binAdder :: Int -> Int -> [Bit]"
+    putStrLn "   Takes two integers resembling binary and returns the sum as a"
+    putStrLn "   Bit list using the simulated circuit."
+    putStrLn "   Usage: binAdder 1 1  ->  [Zero, One]"
+    putStrLn ""
+
+    putStrLn "8. intAdder :: Int -> Int -> Int"
+    putStrLn "   Takes two decimal integers, adds them via the simulated circuit,"
+    putStrLn "   and returns the decimal sum."
+    putStrLn "   Usage: intAdder 2 3  ->  5"
+    putStrLn ""
+
+    putStrLn "9. bit2int :: [Bit] -> Int"
+    putStrLn "   Converts a list of Bits to a decimal integer."
+    putStrLn "   Usage: bit2int [Zero, One]  ->  2"
+    putStrLn ""
+
+    putStrLn "10. bit2string :: [Bit] -> String"
+    putStrLn "    Formats a Bit list into a raw string (LSB-Left)."
+    putStrLn "    Usage: bit2string [Zero, One]  ->  \"01\""
+    
+    putStrLn "=================================="
+    putStrLn "Press Enter to return to menu..."
+    _ <- getLine
+    return ()
