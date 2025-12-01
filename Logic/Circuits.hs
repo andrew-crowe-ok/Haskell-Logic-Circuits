@@ -39,3 +39,27 @@ rippleAddN c (x:xs) (y:ys) =
         recurse  = rippleAddN cN xs ys
     in
         sN : recurse
+
+
+addSub :: Bit -> [Bit] -> [Bit] -> [Bit]
+addSub mode x y = rippleAddN mode x modifiedY
+    where
+        modifiedY = map (\bit -> xor bit mode) y
+
+
+mux :: Bit -> Bit -> Bit -> Bit
+mux x y s = 
+    let
+        and1 = and x $ not s
+        and2 = and s y
+    in
+        or and1 and2
+
+
+crossbar :: Bit -> Bit -> Bit -> (Bit, Bit)
+crossbar x1 x2 s = 
+    let
+        y1 = mux x1 x2 s
+        y2 = mux x2 x1 s
+    in
+        (y1, y2)

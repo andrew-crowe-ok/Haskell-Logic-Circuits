@@ -4,6 +4,7 @@ import System.IO (hFlush, stdout) -- Needed to force print prompts immediately
 import Logic.Types
 import Logic.Utils
 import Logic.Circuits
+import Logic.Byte
 
 
 -- Entry point
@@ -21,20 +22,20 @@ menuLoop = do
     putStrLn "\nSELECT AN OPERATION:"
     putStrLn "1. Convert Decimal to Binary"
     putStrLn "2. Convert Binary to Decimal"
-    putStrLn "3. Simulate Addition (Decimal Inputs)"
-    putStrLn "4. Simulate Addition (Binary Inputs)"
+    putStrLn "3. Unsigned Addition (0 to 255)"    -- Updated
+    putStrLn "4. Signed Addition (-128 to 127)"  -- Updated
     putStrLn "5. View Utility Function Reference (Help)"
     putStrLn "6. Exit"
     
     putStr "> "
-    hFlush stdout -- Ensures the ">" appears before waiting for input
+    hFlush stdout
     
     choice <- getLine
     case choice of
         "1" -> runDecToBin >> menuLoop
         "2" -> runBinToDec >> menuLoop
-        "3" -> runDecAdd   >> menuLoop
-        "4" -> runBinAdd   >> menuLoop
+        "3" -> runUnsignedAdd >> menuLoop  -- New Handler
+        "4" -> runSignedAdd   >> menuLoop  -- New Handler
         "5" -> runHelp     >> menuLoop
         "6" -> putStrLn "Exiting simulation. Goodbye!"
         _   -> putStrLn "Invalid selection. Please try again." >> menuLoop
@@ -69,14 +70,15 @@ runBinToDec = do
     
     -- Call Logic
     let bits = binStr2bit input
-    let n = bit2int bits
+    let n = bit2intUnsigned bits
     
     putStrLn $ "Decimal Output: " ++ show n
 
 
--- Option 3: Addition (Input: Dec, Output: Dec)
-runDecAdd :: IO ()
-runDecAdd = do
+-- Option 3: Unsigned Addition (Wraps at 255)
+runUnsignedAdd :: IO ()
+runUnsignedAdd = do
+    putStrLn "\n--- Unsigned Mode (0 to 255) ---"
     putStr "Enter first number: "
     hFlush stdout
     inputA <- getLine
@@ -88,35 +90,61 @@ runDecAdd = do
     let a = read inputA :: Int
     let b = read inputB :: Int
     
-    -- Simulation Logic
-    let bitsA = int2bit a
-    let bitsB = int2bit b
-    let resultBits = rippleAddN Zero bitsA bitsB
-    let resultInt = bit2int resultBits
+    -- 1. ENCODE: Convert Int to 8-bit Byte
+    -- We use int2byteSigned generically because it just fills bits
+    let byteA = int2byteSigned a
+    let byteB = int2byteSigned b
     
-    putStrLn $ "--- Simulation Result ---"
-    putStrLn $ show a ++ " + " ++ show b ++ " = " ++ show resultInt
+    -- 2. CIRCUIT: Run the Adder
+    -- This uses rippleAddN internally and truncates to 8 bits
+    let resultByte = addBytes byteA byteB
+    
+    -- 3. DECODE: Interpret result as Unsigned
+    let resultInt = byteToIntUnsigned resultByte
+    
+    putStrLn $ "Binary Calculation: " ++ show byteA ++ " + " ++ show byteB
+    putStrLn $ "Result: " ++ show resultInt 
+    
+    -- Check for visual overflow (if logic result != math result)
+    if (a + b) /= resultInt 
+        then putStrLn "NOTE: Overflow occurred (Result > 255 wrapped around)"
+        else return ()
 
 
--- Option 4: Addition (Input: Bin, Output: Bin)
-runBinAdd :: IO ()
-runBinAdd = do
-    putStr "Enter first binary string: "
+-- Option 4: Signed Addition (Wraps at 127/-128)
+runSignedAdd :: IO ()
+runSignedAdd = do
+    putStrLn "\n--- Signed Mode (-128 to 127) ---"
+    putStr "Enter first number: "
     hFlush stdout
     inputA <- getLine
     
-    putStr "Enter second binary string: "
+    putStr "Enter second number: "
     hFlush stdout
     inputB <- getLine
     
-    -- Simulation Logic
-    let bitsA = binStr2bit inputA
-    let bitsB = binStr2bit inputB
-    let resultBits = rippleAddN Zero bitsA bitsB
-    let resultStr = reverse $ bit2string resultBits
+    let a = read inputA :: Int
+    let b = read inputB :: Int
     
-    putStrLn $ "--- Simulation Result ---"
-    putStrLn $ inputA ++ " + " ++ inputB ++ " = " ++ resultStr
+    -- 1. ENCODE: Convert Int to 8-bit Byte
+    -- Handles negative inputs by creating 2's complement bits
+    let byteA = int2byteSigned a
+    let byteB = int2byteSigned b
+    
+    -- 2. CIRCUIT: Run the Adder
+    -- EXACT SAME CIRCUIT as Unsigned!
+    let resultByte = addBytes byteA byteB
+    
+    -- 3. DECODE: Interpret result as Signed (Check MSB)
+    let resultInt = byteToIntSigned resultByte
+    
+    putStrLn $ "Binary Calculation: " ++ show byteA ++ " + " ++ show byteB
+    putStrLn $ "Result: " ++ show resultInt
+    
+    -- Check for overflow
+    if (a + b) /= resultInt
+        then putStrLn "NOTE: Overflow occurred (Result went out of -128..127 range)"
+        else return ()
     
     -- Option 5: HELP / Reference Guide
 runHelp :: IO ()
