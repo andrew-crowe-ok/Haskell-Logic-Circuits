@@ -35,7 +35,7 @@ Upon loading the program, functions from every file are available to call direct
 
 
 ## Example: Utils.hs, Circuits.hs
-(must be outside of the main menu to use)
+(must be outside of the main menu to use)  
 This example is intended as a proof of the arithmetic and conversion logic. It also proves that I need to reevaluate my usage of reverse.
 
     ghci> stepZero = rippleAddN Zero (reverse [One, Zero, One, Zero]) (reverse [One, Zero, Zero])
