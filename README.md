@@ -10,6 +10,10 @@ Performs basic signed and unsigned arithmetic entirely through the use of types 
     System clock & memory circuits -> latches, flip flops, registers
     Other                          -> improve the safeness and flexibility of existing systems
 
+
+
+
+
 Upon loading the program, functions from every file are available to call directly. Or, type "main" to enter the main menu.
 
 ## Example: Gates.hs functions 
