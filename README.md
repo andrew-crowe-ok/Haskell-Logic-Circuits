@@ -8,11 +8,12 @@ Performs basic signed and unsigned arithmetic entirely through the use of types 
     Overflow                       -> explicit overflow detection and handling
     Bitwise operations             -> more arithmetic operations and other concepts from CS-341L
     System clock & memory circuits -> latches, flip flops, registers
-    Other                          -> improve the safeness and flexibility of existing systems
+    Other                          -> improve the safeness and flexibility of existing systems  
 
-
-
-
+***
+***
+***
+***  
 
 Upon loading the program, functions from every file are available to call directly. Or, type "main" to enter the main menu.
 
