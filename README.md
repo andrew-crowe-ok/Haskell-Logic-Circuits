@@ -10,13 +10,15 @@ Performs basic signed and unsigned arithmetic entirely through the use of types 
     System clock & memory circuits -> latches, flip flops, registers
     Other                          -> improve the safeness and flexibility of existing systems  
 
-<br>
+
 ***
-<br>  
+
+<br>
+<br>
 
 Upon loading the program, functions from every file are available to call directly. Or, type "main" to enter the main menu.
 
-## Example: Gates.hs functions 
+## Example: Gates.hs
 (must be outside of the main menu to use)
 
     ghci> nand One Zero
@@ -32,7 +34,7 @@ Upon loading the program, functions from every file are available to call direct
     One
 
 
-## Example: Utils.hs, Circuits.hs functions 
+## Example: Utils.hs, Circuits.hs
 (must be outside of the main menu to use)
 This example is intended as a proof of the arithmetic and conversion logic. It also proves that I need to reevaluate my usage of reverse.
 
