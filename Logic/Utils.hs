@@ -1,5 +1,7 @@
 module Logic.Utils where
 
+import Prelude hiding (not, and, or) 
+import Logic.Gates
 import Logic.Types
 import Logic.Circuits (rippleAddN)
 
@@ -84,7 +86,9 @@ bit2intSigned bits =
         msb           = last bits
         magnitudeBits = init bits
         magnitudeVal  = bit2intUnsigned magnitudeBits
-        signVal       = if msb == One then -(2 ^ (length bits - 1)) else 0
+        signVal       = if msb == One 
+                        then -(2 ^ (length bits - 1)) 
+                        else 0
     in
         magnitudeVal + signVal
 
@@ -93,6 +97,7 @@ isNegative :: [Bit] -> Bool
 isNegative bits
     | last bits == One = True
     | otherwise        = False
+
 
 -- Takes a list of Bits and produces a string representation
 bit2string :: [Bit] -> String

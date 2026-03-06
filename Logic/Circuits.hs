@@ -4,6 +4,7 @@ import Prelude hiding (not, and, or)
 import Logic.Types
 import Logic.Gates
 
+
 halfAdder :: Bit -> Bit -> [Bit]
 halfAdder x y = (xor x y) : (and x y) : []
 

@@ -1,6 +1,8 @@
 module Main where
 
+import Prelude hiding (not, and, or) 
 import System.IO (hFlush, stdout) -- Needed to force print prompts immediately
+import Logic.Gates
 import Logic.Types
 import Logic.Utils
 import Logic.Circuits
@@ -21,7 +23,7 @@ menuLoop :: IO ()
 menuLoop = do
     putStrLn "\nSELECT AN OPERATION:"
     putStrLn "1. Convert Decimal to Binary"
-    putStrLn "2. Convert Binary to Decimal"
+    putStrLn "2. Convert Unsigned Binary to Decimal"
     putStrLn "3. Unsigned Addition (0 to 255)"    -- Updated
     putStrLn "4. Signed Addition (-128 to 127)"  -- Updated
     putStrLn "5. View Utility Function Reference (Help)"
@@ -49,7 +51,7 @@ menuLoop = do
 -- Option 1: Decimal -> Binary
 runDecToBin :: IO ()
 runDecToBin = do
-    putStr "Enter a decimal number (e.g., 42): "
+    putStr "Enter a non-negative decimal number (e.g., 42): "
     hFlush stdout
     input <- getLine
     let n = read input :: Int
@@ -102,7 +104,10 @@ runUnsignedAdd = do
     -- 3. DECODE: Interpret result as Unsigned
     let resultInt = byteToIntUnsigned resultByte
     
-    putStrLn $ "Binary Calculation: " ++ show byteA ++ " + " ++ show byteB
+    -- Unwrapping, reversing, then showing the result
+    putStrLn $ "Binary Calculation: " ++ show (let (Byte bits) = byteA in Byte (reverse bits)) 
+                                        ++ " + " ++ 
+                                        show (let (Byte bits) = byteB in Byte (reverse bits))
     putStrLn $ "Result: " ++ show resultInt 
     
     -- Check for visual overflow (if logic result != math result)
@@ -150,12 +155,13 @@ runSignedAdd = do
 runHelp :: IO ()
 runHelp = do
     putStrLn "\n=== UTILITY FUNCTION REFERENCE ==="
-    putStrLn "These functions are available in Logic.Utils for use in GHCi."
-    putStrLn "Note: 'Bit List' implies LSB-First order (e.g., [1, 2, 4...])."
+    putStrLn "These functions are available in Logic.Utils."
+    putStrLn "For direct access to these functions, press Enter to return to the main menu, then exit the main menu."
+    putStrLn "Note: 'Bit List' implies LSB-First order (e.g., [1, 2, 4, 8...])."
     putStrLn "------------------------------------------------------------"
 
     putStrLn "1. int2binIO :: Int -> IO ()"
-    putStrLn "   Takes a decimal integer (e.g., 5) and prints its binary representation."
+    putStrLn "   Takes a non-negative decimal integer (e.g., 5) and prints its binary representation."
     putStrLn "   Usage: int2binIO 5  ->  Prints \"101\""
     putStrLn ""
 
@@ -167,18 +173,18 @@ runHelp = do
     putStrLn "3. bin2int :: Int -> Int"
     putStrLn "   Takes an integer resembling binary (digits 1 and 0 only) and"
     putStrLn "   returns its true decimal value."
-    putStrLn "   Usage: bin2int 101  ->  5"
+    putStrLn "   Usage: bin2int 0101  ->  5"
     putStrLn ""
 
     putStrLn "4. binStr2bit :: String -> [Bit]"
-    putStrLn "   Parses a string of '1's and '0's into a Bit list."
+    putStrLn "   Parses a string of '1's and '0's into a list of Bits."
     putStrLn "   Usage: binStr2bit \"110\"  ->  [Zero, One, One]"
     putStrLn ""
 
     putStrLn "5. bin2bit :: Int -> [Bit]"
     putStrLn "   Takes an integer resembling binary, validates it, and converts"
     putStrLn "   it to a Bit list. Returns [Zero] if invalid."
-    putStrLn "   Usage: bin2bit 110  ->  [Zero, One, One]"
+    putStrLn "   Usage: bin2bit 0110  ->  [Zero, Zero, One, One]"
     putStrLn ""
 
     putStrLn "6. binAdderIO :: Int -> Int -> IO ()"
@@ -199,8 +205,8 @@ runHelp = do
     putStrLn "   Usage: intAdder 2 3  ->  5"
     putStrLn ""
 
-    putStrLn "9. bit2int :: [Bit] -> Int"
-    putStrLn "   Converts a list of Bits to a decimal integer."
+    putStrLn "9. bit2intUnsigned :: [Bit] -> Int"
+    putStrLn "   Converts a list of Bits to a non-negative decimal integer."
     putStrLn "   Usage: bit2int [Zero, One]  ->  2"
     putStrLn ""
 
