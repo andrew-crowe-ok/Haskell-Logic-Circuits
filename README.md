@@ -10,13 +10,13 @@ Performs basic signed and unsigned arithmetic entirely through the use of types 
     System clock & memory circuits -> latches, flip flops, registers
     Other                          -> improve the safeness and flexibility of existing systems  
 
+<br>
 
 ***
 
 <br>
-<br>
 
-Upon loading the program, functions from every file are available to call directly. Or, type "main" to enter the main menu.
+Upon loading the program, functions from every file are available to call directly. Or, type "main" to enter the main menu. "main" is also required to start the (AI-written, untested) tests in Tests.hs.
 
 ## Example: Gates.hs
 (must be outside of the main menu to use)
@@ -36,7 +36,8 @@ Upon loading the program, functions from every file are available to call direct
 
 ## Example: Utils.hs, Circuits.hs
 (must be outside of the main menu to use)  
-This example is intended as a proof of the arithmetic and conversion logic. It also proves that I need to reevaluate my usage of reverse.
+    
+    -- This example is intended as a proof of the arithmetic and conversion logic. It also proves that I need to reevaluate my usage of reverse.
 
     ghci> stepZero = rippleAddN Zero (reverse [One, Zero, One, Zero]) (reverse [One, Zero, Zero])
     ghci> stepZero

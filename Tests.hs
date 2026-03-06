@@ -62,8 +62,8 @@ main = do
         assert "int2bit 6 produces LSB-First [0,1,1]" $ bits6 == [Zero, One, One]
         
         -- Round Trip
-        assert "Round Trip (42 -> Bits -> 42)" $ bit2int (int2bit 42) == 42
-        assert "Round Trip (0 -> Bits -> 0)"   $ bit2int (int2bit 0) == 0
+        assert "Round Trip (42 -> Bits -> 42)" $ bit2intUnsigned (int2bit 42) == 42
+        assert "Round Trip (0 -> Bits -> 0)"   $ bit2intUnsigned (int2bit 0) == 0
 
     describe "Adder Circuits (Arithmetic)" $ do
         -- Half Adder
@@ -79,14 +79,14 @@ main = do
         let three = int2bit 3
         let five  = rippleAddN Zero two three
         
-        assert "Ripple Adder (2 + 3 = 5)" $ bit2int five == 5
+        assert "Ripple Adder (2 + 3 = 5)" $ bit2intUnsigned five == 5
         
         -- Check Overflow handling (15 + 1 = 16)
         -- 15 is [1,1,1,1]. Adding 1 should ripple all the way to [0,0,0,0,1]
         let fifteen = int2bit 15
         let one     = int2bit 1
         let sixteen = rippleAddN Zero fifteen one
-        assert "Ripple Overflow (15 + 1 = 16)" $ bit2int sixteen == 16
+        assert "Ripple Overflow (15 + 1 = 16)" $ bit2intUnsigned sixteen == 16
 
     describe "Property Tests (Automated Laws)" $ do
         -- Test 1: Commutativity (A + B == B + A)
@@ -95,8 +95,8 @@ main = do
         let failures = [ (x, y) | x <- range, y <- range, 
                          let bx = int2bit x
                              by = int2bit y
-                             sum1 = bit2int (rippleAddN Zero bx by)
-                             sum2 = bit2int (rippleAddN Zero by bx)
+                             sum1 = bit2intUnsigned (rippleAddN Zero bx by)
+                             sum2 = bit2intUnsigned (rippleAddN Zero by bx)
                          in sum1 /= sum2 ]
                          
         assert "Addition is Commutative (order doesn't matter)" $ null failures
@@ -106,7 +106,7 @@ main = do
         let idFailures = [ x | x <- [0..50],
                            let bx = int2bit x
                                b0 = int2bit 0
-                               sum = bit2int (rippleAddN Zero bx b0)
+                               sum = bit2intUnsigned (rippleAddN Zero bx b0)
                            in sum /= x ]
                            
         assert "Addition Identity (adding zero changes nothing)" $ null idFailures
