@@ -1,10 +1,14 @@
+{-
+Contains simulated primitive logic gates.
+-}
+
 module Logic.Gates where
 
 import Prelude hiding (not, and, or) 
 import Logic.Types
 
 
--- 2-Input Gates
+-- 2-input Gates
 
 nand :: Bit -> Bit -> Bit
 nand One One = Zero
@@ -22,7 +26,8 @@ or x y = nand (not x) (not y)
 xor :: Bit -> Bit -> Bit
 xor x y = and (or x y) (nand x y)
 
--- N-Input Gates
+
+-- n-input Gates
 
 andN :: [Bit] -> Bit
 andN inputs = foldr and One inputs

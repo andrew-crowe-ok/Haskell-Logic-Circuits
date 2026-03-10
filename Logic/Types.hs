@@ -1,3 +1,7 @@
+{-
+Contains custom data types for simulation of binary data.
+-}
+
 module Logic.Types where
 
 -- [Bit] are always ordered from LSB on the left to MSB on the right
