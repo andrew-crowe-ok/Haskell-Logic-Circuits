@@ -6,7 +6,7 @@ Inspired by nand2tetris, this is a personal project written in Haskell that bega
 
 Use ghci to run the program:
     
-    > ghci main.hs
+    > ghci Main.hs
 <br>
 
 Upon loading main.hs, functions from every file are immediately available to call directly. See ***How it works*** below for instructions. Or, type ***main*** to enter the main menu for a simple walled garden experience.
