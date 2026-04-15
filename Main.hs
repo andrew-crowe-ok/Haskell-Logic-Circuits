@@ -6,12 +6,12 @@ A simulation of logic circuits, from nand to a ripple-carry adder.
 module Main where
 
 import Prelude hiding (not, and, or) 
-import System.IO (hFlush, stdout) -- Needed to force print prompts immediately
-import Logic.Gates
-import Logic.Types
-import Logic.Utils
-import Logic.Circuits
-import Logic.Byte
+import System.IO (hFlush, stdout) 
+import Logic.Gates ()
+import Logic.Circuits ()
+import Logic.Types ( Byte(Byte), Arithmetic(add) ) 
+import Logic.Utils ( int2bit, bit2string, bit2intUnsigned, parseBinaryString, bit2intSigned )
+import Logic.Byte ( int2byteSigned, byteToIntUnsigned, byteToIntSigned )
 
 
 -- Entry point
@@ -61,12 +61,12 @@ runDecToBin = do
     input <- getLine
     let n = read input :: Int
     
-    -- Call Logic
-    let bits = int2bit n
-    let output = reverse $ bit2string bits
-    
-    putStrLn $ "Binary Output: " ++ output
-
+    case int2bit n of
+      Just bits -> do
+        let output = reverse $ bit2string bits
+        putStrLn $ "Binary Output: " ++ output
+      Nothing -> 
+        putStrLn "Error: Invalid input. Please enter a non-negative integer."
 
 -- Option 2: Binary -> Decimal
 runBinToDec :: IO ()
@@ -75,11 +75,12 @@ runBinToDec = do
     hFlush stdout
     input <- getLine
     
-    -- Call Logic
-    let bits = binStr2bit input
-    let n = bit2intUnsigned bits
-    
-    putStrLn $ "Decimal Output: " ++ show n
+    case parseBinaryString input of
+      Just bits -> do
+        let n = bit2intUnsigned bits
+        putStrLn $ "Decimal Output: " ++ show n
+      Nothing ->
+        putStrLn "Error: Invalid binary string containing non-binary characters."
 
 
 -- Option 3: Unsigned Addition (Wraps at 255)
@@ -104,7 +105,7 @@ runUnsignedAdd = do
     
     -- 2. CIRCUIT: Run the Adder
     -- This uses rippleAddN internally and truncates to 8 bits
-    let resultByte = addBytes byteA byteB
+    let resultByte = add byteA byteB
     
     -- 3. DECODE: Interpret result as Unsigned
     let resultInt = byteToIntUnsigned resultByte
@@ -143,7 +144,7 @@ runSignedAdd = do
     
     -- 2. CIRCUIT: Run the Adder
     -- EXACT SAME CIRCUIT as Unsigned!
-    let resultByte = addBytes byteA byteB
+    let resultByte = add byteA byteB
     
     -- 3. DECODE: Interpret result as Signed (Check MSB)
     let resultInt = byteToIntSigned resultByte
@@ -167,46 +168,22 @@ runHelp = do
     putStrLn "------------------------------------------------------------"
     
     putStrLn ""
-    putStrLn "1. int2bit :: Int -> [Bit]"
+    putStrLn "1. int2bit :: Int -> Maybe [Bit]"
     putStrLn "   Converts a decimal integer to a list of Bits."
     putStrLn "   Usage: int2bit 6  ->  [Zero, One, One]"
     putStrLn ""
 
-    putStrLn "2. bin2int :: Int -> Int"
-    putStrLn "   Takes an integer resembling binary (digits 1 and 0 only) and"
-    putStrLn "   returns its true decimal value."
-    putStrLn "   Usage: bin2int 0101  ->  5"
-    putStrLn ""
-
-    putStrLn "3. binStr2bit :: String -> [Bit]"
+    putStrLn "2. parseBinaryString :: String -> Maybe [Bit]"
     putStrLn "   Parses a string of '1's and '0's into a list of Bits."
     putStrLn "   Usage: binStr2bit \"110\"  ->  [Zero, One, One]"
     putStrLn ""
 
-    putStrLn "4. bin2bit :: Int -> [Bit]"
-    putStrLn "   Takes an integer resembling binary, validates it, and converts"
-    putStrLn "   it to a Bit list. Returns [Zero] if invalid."
-    putStrLn "   Usage: bin2bit 0110  ->  [Zero, Zero, One, One]"
-    putStrLn ""
-
-    putStrLn "5. binAdder :: Int -> Int -> [Bit]"
-    putStrLn "   Takes two integers resembling binary and returns the sum as a"
-    putStrLn "   Bit list using the simulated circuit."
-    putStrLn "   Usage: binAdder 1 1  ->  [Zero, One]"
-    putStrLn ""
-
-    putStrLn "6. intAdder :: Int -> Int -> Int"
-    putStrLn "   Takes two decimal integers, adds them via the simulated circuit,"
-    putStrLn "   and returns the decimal sum."
-    putStrLn "   Usage: intAdder 2 3  ->  5"
-    putStrLn ""
-
-    putStrLn "7. bit2intUnsigned :: [Bit] -> Int"
+    putStrLn "3. bit2intUnsigned :: [Bit] -> Int"
     putStrLn "   Converts a list of Bits to a non-negative decimal integer."
     putStrLn "   Usage: bit2int [Zero, One]  ->  2"
     putStrLn ""
 
-    putStrLn "8. bit2string :: [Bit] -> String"
+    putStrLn "4. bit2string :: [Bit] -> String"
     putStrLn "    Formats a Bit list into a raw string (LSB-Left)."
     putStrLn "    Usage: bit2string [Zero, One]  ->  \"01\""
     

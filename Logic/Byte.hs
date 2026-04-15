@@ -4,6 +4,14 @@ import Logic.Types
 import Logic.Circuits (rippleAddN)
 import qualified Logic.Gates as G
 import Logic.Utils (int2bit, bit2intUnsigned)
+import Distribution.SPDX (LicenseId(ZPL_1_1))
+
+instance Arithmetic Byte where
+    add (Byte a) (Byte b) = 
+        let rawSum = rippleAddN Zero a b
+        in Byte (setLength rawSum)
+        
+    sub a b = add a (negateByte b)
 
 width :: Int
 width = 8
@@ -29,21 +37,18 @@ getBits (Byte bits) = bits
 -- CONSTRUCTORS (Int <-> Byte)
 --------------------------------------------------------------------------------
 
--- Smart Constructor: Converts Int to Byte (Handles Signed 2's Complement automatically)
 int2byteSigned :: Int -> Byte
 int2byteSigned n
-    | n >= 0    = Byte $ setLength (int2bit n)
-    | otherwise = 
-        -- 2's Complement Algorithm for negatives:
-        -- 1. Get positive bits
-        -- 2. Invert bits
-        -- 3. Add 1
-        let 
-            posBits  = setLength (int2bit (abs n))
-            inverted = map G.not posBits
-            rawPlus1 = rippleAddN Zero inverted [One] -- Add 1 to inverted
-        in 
-            Byte (setLength rawPlus1)
+    | n >= 0    = case int2bit n of
+                    Just bits -> Byte $ setLength bits
+                    Nothing   -> Byte $ replicate width Zero
+    | otherwise = case int2bit (abs n) of
+                    Just posBits ->
+                      let inverted = map G.not $ setLength posBits
+                          rawPlus1 = rippleAddN Zero inverted [One]
+                      in Byte $ setLength rawPlus1
+                    Nothing -> Byte $ replicate width Zero
+
 
 -- Unsigned Interpretation (Treats raw bits as 0 to 255)
 byteToIntUnsigned :: Byte -> Int
@@ -72,25 +77,4 @@ bitwiseNot (Byte bits) = Byte (map G.not bits)
 
 -- Calculates -x using 2's complement (Invert + 1)
 negateByte :: Byte -> Byte
-negateByte b = 
-    let 
-        inverted = bitwiseNot b
-        one      = int2byteSigned 1
-    in 
-        addBytes inverted one
-
---------------------------------------------------------------------------------
--- ARITHMETIC OPERATIONS
---------------------------------------------------------------------------------
-
--- Safe Addition: Wraps/Unwraps automatically
-addBytes :: Byte -> Byte -> Byte
-addBytes (Byte a) (Byte b) = 
-    let 
-        rawSum = rippleAddN Zero a b
-    in 
-        Byte (setLength rawSum)
-
--- Safe Subtraction: a - b = a + (-b)
-subBytes :: Byte -> Byte -> Byte
-subBytes a b = addBytes a (negateByte b)
+negateByte b = add (bitwiseNot b) (int2byteSigned 1)

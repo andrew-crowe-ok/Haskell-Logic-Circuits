@@ -5,13 +5,13 @@ Contains basic arithmetic circuits built from simulated gates.
 module Logic.Circuits where
 
 import Prelude hiding (not, and, or)
-import Logic.Types
-import Logic.Gates
+import Logic.Types ( Bit(Zero) )
+import Logic.Gates ( not, and, or, xor )
 
 
 -- Uses XOR and AND to generate a sum bit and carry bit. Outputs [sum, carry].
 halfAdder :: Bit -> Bit -> [Bit]
-halfAdder x y = (xor x y) : (and x y) : []
+halfAdder x y = [xor x y, and x y]
 
 
 -- Uses halfAdder and an OR gate to handle 2-bit sums with carries. Outputs [sum, carry].
@@ -36,7 +36,7 @@ rippleAddN c (x:xs) (y:ys) =
         [sN, cN] = fullAdder x y c
         recurse  = rippleAddN cN xs ys
     in
-        sN : recurse        
+        sN : recurse
 
 
 
@@ -44,7 +44,7 @@ rippleAddN c (x:xs) (y:ys) =
 ---- CIRCUITS NOT CURRENTLY IN USE
 
 mux :: Bit -> Bit -> Bit -> Bit
-mux x y s = 
+mux x y s =
     let
         and1 = and x $ not s
         and2 = and s y
@@ -53,7 +53,7 @@ mux x y s =
 
 
 crossbar :: Bit -> Bit -> Bit -> (Bit, Bit)
-crossbar x1 x2 s = 
+crossbar x1 x2 s =
     let
         y1 = mux x1 x2 s
         y2 = mux x2 x1 s

@@ -4,8 +4,8 @@ Contains simulated primitive logic gates.
 
 module Logic.Gates where
 
-import Prelude hiding (not, and, or) 
-import Logic.Types
+import Prelude hiding (not, and, or)
+import Logic.Types ( Bit(..) )
 
 
 -- 2-input Gates
@@ -30,13 +30,13 @@ xor x y = and (or x y) (nand x y)
 -- n-input Gates
 
 andN :: [Bit] -> Bit
-andN inputs = foldr and One inputs
+andN = foldr and One
 
 orN :: [Bit] -> Bit
-orN inputs = foldr or Zero inputs
+orN = foldr or Zero
 
 nandN :: [Bit] -> Bit
 nandN inputs = not (andN inputs)
 
 xorN :: [Bit] -> Bit
-xorN inputs = foldr xor Zero inputs
+xorN = foldr xor Zero
