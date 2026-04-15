@@ -1,6 +1,7 @@
 {-
 A simulation of logic circuits, from nand to a ripple-carry adder.
 -}
+{- HLINT ignore "Use when" -}
 
 module Main where
 
@@ -116,8 +117,8 @@ runUnsignedAdd = do
     
     -- Check for visual overflow (if logic result != math result)
     if (a + b) /= resultInt 
-        then putStrLn "NOTE: Overflow occurred (Result > 255 wrapped around)"
-        else return ()
+    then putStrLn "NOTE: Overflow occurred (Result > 255 wrapped around)"
+    else return ()
 
 
 -- Option 4: Signed Addition (Wraps at 127/-128)
