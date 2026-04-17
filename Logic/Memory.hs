@@ -1,19 +1,32 @@
 module Logic.Memory where
 
-import Logic.Types (Bit(..), Byte(..))
-import Data.Sequence (Seq)
+import Logic.Types
+import Logic.Classes
+import qualified Logic.Gates as G
+import Data.Array.Byte (ByteArray)
 
-instance Sequential srLatch where
-  update s r (srLatch q) =
-      srLatch (srLatch s r q)
+instance Sequential SrLatch where
+  update :: Bit -> Bit -> SrLatch -> SrLatch
+  update s r (SrLatch q) =
+      SrLatch (srLatch s r q)
+
+instance Sequential DFlipFlop where
+  update :: Bit -> Bit -> DFlipFlop -> DFlipFlop
+  update d clock (DFlipFlop q) =
+      DFlipFlop (dFlipFlop d clock q)
 
 srLatch :: Bit -> Bit -> Bit -> Bit
-srLatch One Zero _  = One
-srLatch Zero One _  = Zero
-srLatch Zero Zero q = q
-srLatch One One _   = Zero
+srLatch s r qPrev = qNext
+  where
+    qNot  = G.not (G.or s qPrev)
+    qNext = G.not (G.or r qNot)
 
 dFlipFlop :: Bit -> Bit -> Bit -> Bit
-dFlipFlop d clock q
-  | clock == One = d
-  | otherwise    = q
+dFlipFlop d clock = srLatch s r
+  where
+    s = G.and d clock
+    r = G.and (G.not d) clock
+
+register8 :: Byte -> Bit -> Byte -> Byte
+register8 (Byte dBits) clock (Byte qBits) =
+    Byte (zipWith (`dFlipFlop` clock) dBits qBits)
