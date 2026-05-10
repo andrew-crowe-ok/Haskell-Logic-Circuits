@@ -261,7 +261,8 @@ main = do
     hSetEncoding stdout utf8
     hSetEncoding stdin utf8
     hSetBuffering stdin NoBuffering
-    hSetBuffering stdout LineBuffering 
+    -- Use BlockBuffering to flush the entire frame at once, reducing tearing
+    hSetBuffering stdout (BlockBuffering Nothing) 
     hSetEcho stdin False
 
     -- Check terminal size once at launch
@@ -274,6 +275,12 @@ main = do
             putStrLn "Please zoom out or expand your window and restart."
             exitFailure
         else do
-            putStr "\ESC[?25l"  -- Hide cursor
+            putStr "\ESC[?25l"   -- Hide cursor
+            putStr "\ESC[?1049h" -- Enter alternate screen buffer (isolates UI)
+            putStr "\ESC[?7l"    -- Disable line wrapping (prevents vertical layout breakage)
+
             runApp logicSimApp
-            putStr "\ESC[?25h"  -- Show cursor
+
+            putStr "\ESC[?7h"    -- Restore line wrapping
+            putStr "\ESC[?1049l" -- Exit alternate screen buffer
+            putStr "\ESC[?25h"   -- Restore cursor
