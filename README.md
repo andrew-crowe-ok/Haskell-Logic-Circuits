@@ -23,7 +23,7 @@ Upon loading main.hs, functions from every file are immediately available to cal
     3. Unsigned Addition (0 to 255)
     4. Signed Addition (-128 to 127)
     5. View Utility Function Reference (Help)
-    6. Exit
+    6. Exit Simulator
     >>
 <br>
 <br>

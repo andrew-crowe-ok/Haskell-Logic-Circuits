@@ -31,7 +31,7 @@ menuLoop = do
     putStrLn "3. Unsigned Addition (0 to 255)"     
     putStrLn "4. Signed Addition (-128 to 127)"   
     putStrLn "5. View Utility Function Reference (Help)"
-    putStrLn "6. Exit main/Enter function mode"
+    putStrLn "6. Exit Simulator"
     
     putStr ">> "
     hFlush stdout
@@ -161,7 +161,6 @@ runHelp = do
     putStrLn "\n=============================="
     putStrLn "  UTILITY FUNCTION REFERENCE    "
     putStrLn "=============================="
-    putStrLn "\nTo access these functions directly, press Enter to leave this screen, then option 6 to enter function mode."
     putStrLn "Note: 'Bit List' implies LSB-First order (e.g., [1, 2, 4, 8...])."
     putStrLn "------------------------------------------------------------"
     
