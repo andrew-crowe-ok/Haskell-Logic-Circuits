@@ -52,12 +52,14 @@ syncFromStr str =
 syncFromByte :: AppMode -> Byte -> String
 syncFromByte m b = show (getNumericValue m b)
 
--- Inverts the bit at the specified index
+-- Inverts the bit at the specified index safely
 toggleBitAt :: Int -> Byte -> Byte
 toggleBitAt idx (Byte bits) = 
-    let (pre, b:post) = splitAt idx bits
-        newB = if b == One then Zero else One
-    in Byte (pre ++ newB : post)
+    case splitAt idx bits of
+        (pre, b:post) -> 
+            let newB = if b == One then Zero else One
+            in Byte (pre ++ newB : post)
+        _ -> Byte bits -- Returns the original byte if the index is out of bounds
 
 --------------------------------------------------------------------------------
 -- 2. ACTIONS 
