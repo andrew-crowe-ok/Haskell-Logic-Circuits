@@ -3,11 +3,13 @@
 
 module Main where
 
-import Layoutz 
+import Layoutz
 import Byte    ( Byte(..), byteToIntUnsigned, byteToIntSigned, int2byteSigned )
 import Bit     ( Bit(..) )
 import Classes ( Arithmetic(add) )
 import System.IO (hSetEncoding, hSetBuffering, hSetEcho, stdout, stdin, utf8, BufferMode(..))
+import System.Exit (exitFailure)
+import qualified System.Console.Terminal.Size as Term (size, Window(width, height))
 
 --------------------------------------------------------------------------------
 -- 1. MODEL
@@ -18,13 +20,13 @@ data AppMode = UnsignedAdd | SignedAdd deriving (Eq, Show, Enum, Bounded)
 data Focus = NumA | SwA Int | NumB | SwB Int deriving (Eq, Show)
 
 data AppModel = AppModel
-    { byteA  :: Byte
-    , byteB  :: Byte
-    , strA   :: String
-    , strB   :: String
-    , mode   :: AppMode
-    , focus  :: Focus
-    , frame  :: Int
+    { byteA          :: Byte
+    , byteB          :: Byte
+    , strA           :: String
+    , strB           :: String
+    , mode           :: AppMode
+    , focus          :: Focus
+    , frame          :: Int
     }
 
 checkOverflow :: AppMode -> Byte -> Byte -> Bool
@@ -62,8 +64,8 @@ setBitAt idx newBit (Byte bits) =
 data AppAction
     = TypeChar Char
     | Backspace
-    | MoveCursor Int      
-    | AdjustValue Int     
+    | MoveCursor Int
+    | AdjustValue Int
     | ToggleMode
     | AnimTick
     | Quit
@@ -74,10 +76,10 @@ data AppAction
 
 handleAction :: AppAction -> AppModel -> (AppModel, Cmd AppAction)
 handleAction action model = case action of
-    Quit     -> (model, CmdExit)
-    AnimTick -> (model { frame = frame model + 1 }, CmdNone)
-    
-    MoveCursor dir -> 
+    Quit             -> (model, CmdExit)
+    AnimTick         -> (model { frame = frame model + 1 }, CmdNone)
+
+    MoveCursor dir   ->
         let nextFocus = case (focus model, dir) of
                 (NumA, -1)  -> SwA 7
                 (SwA i, -1) -> if i > 0 then SwA (i-1) else NumB
@@ -151,18 +153,19 @@ handleSubs _ = subBatch
         KeyUp        -> Just (AdjustValue 1)
         KeyDown      -> Just (AdjustValue (-1))
         _            -> Nothing
-    , subEveryMs 250 AnimTick
+    , subEveryMs 100 AnimTick
     ]
 
 --------------------------------------------------------------------------------
 -- 5. VIEW
 --------------------------------------------------------------------------------
 
--- Horizontal scale increased by using wider spacing (6 chars per bit)
 renderBits :: Int -> [Bit] -> L
 renderBits f bits = tightRow $ map draw (reverse bits)
   where
+    pulse :: Double
     pulse = sin (fromIntegral f * 0.3)
+    rVal  :: Int
     rVal  = round $ 177 + (78 * pulse) 
     draw One  = withColor (ColorTrue rVal 0 0) $ text "  ●   "
     draw Zero = withColor (ColorTrue 40 0 0)   $ text "  ●   " 
@@ -172,7 +175,9 @@ renderSwitches f foc target bits =
     let activeIdx = case foc of { SwA i | target == "A" -> i; SwB i | target == "B" -> i; _ -> -1 }
     in tightRow [ draw activeIdx i b | (i, b) <- zip [7,6..0] (reverse bits) ]
   where
+    pulse :: Double
     pulse = sin (fromIntegral f * 0.4)
+    glowVal :: Int
     glowVal = round $ 180 + (75 * pulse)
     draw activeIdx i b = 
         let isON = b == One
@@ -191,7 +196,6 @@ renderView model =
         (Byte resBits) = resByte
         isOV = checkOverflow (mode model) (byteA model) (byteB model)
         
-        -- Width constant increased for horizontal scale
         w = 60 
         centerTxt s = let p = max 0 (w - length s) `div` 2 in replicate p ' ' ++ s ++ replicate (w - length s - p) ' '
         padLine s = s ++ replicate (max 0 (w - length s)) ' '
@@ -237,25 +241,39 @@ renderView model =
 -- 6. MAIN APP RUNNER
 --------------------------------------------------------------------------------
 
+-- Safely queries the terminal size. Returns a default if it fails (e.g., in cabal run).
+getInitialSize :: IO (Int, Int)
+getInitialSize = do
+    sz <- Term.size
+    case sz of
+        Just w  -> return (Term.width w, Term.height w)
+        Nothing -> return (80, 24)
+
+-- Added explicit type signature to resolve warning
+logicSimApp :: LayoutzApp AppModel AppAction
 logicSimApp = LayoutzApp
     { appInit = (AppModel (int2byteSigned 0) (int2byteSigned 0) "0" "0" UnsignedAdd NumA 0, CmdNone)
     , appUpdate = handleAction, appSubscriptions = handleSubs, appView = renderView
     }
-
-{-
-main = do
-    hSetEncoding stdout utf8; hSetEncoding stdin utf8
-    hSetBuffering stdin NoBuffering; hSetBuffering stdout (BlockBuffering (Just 32768))
-    hSetEcho stdin False; putStr "\ESC[?25l"
-    runApp logicSimApp; putStr "\ESC[?25h"
--}
 
 main :: IO ()
 main = do
     hSetEncoding stdout utf8
     hSetEncoding stdin utf8
     hSetBuffering stdin NoBuffering
-    -- Change NoBuffering to LineBuffering
     hSetBuffering stdout LineBuffering 
     hSetEcho stdin False
-    runApp logicSimApp
+
+    -- Check terminal size once at launch
+    (w, _) <- getInitialSize
+
+    if w < 64
+        then do
+            putStrLn $ "Error: Terminal is too narrow (" ++ show w ++ " columns)."
+            putStrLn "The Logic Circuit Simulator requires at least 64 columns."
+            putStrLn "Please zoom out or expand your window and restart."
+            exitFailure
+        else do
+            putStr "\ESC[?25l"  -- Hide cursor
+            runApp logicSimApp
+            putStr "\ESC[?25h"  -- Show cursor
