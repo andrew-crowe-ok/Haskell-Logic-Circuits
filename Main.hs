@@ -160,65 +160,75 @@ handleSubs _ = subKeyPress $ \key -> case key of
 -- 5. VIEW
 --------------------------------------------------------------------------------
 
--- Formats a list of bits as ASCII LEDs, reversing to display MSB on the left.
-renderBits :: [Bit] -> String
-renderBits bits = unwords $ map (\b -> if b == One then "(O)" else "( )") (reverse bits)
+-- Formats bits. Uses \x200B to offset double-width icon padding.
+renderBits :: [Bit] -> L
+renderBits bits = tightRow $ map drawLed (reverse bits)
+  where
+    drawLed One  = withColor ColorBrightYellow $ text " \xF06E8\x200B "
+    drawLed Zero = withColor ColorBrightBlack  $ text " \xF0EB\x200B "
 
--- Formats the switches and highlights the cursor if the row is currently focused.
-renderSwitches :: Focus -> String -> [Bit] -> String
+-- Formats switches. Uses \x200B to offset double-width icon padding.
+renderSwitches :: Focus -> String -> [Bit] -> L
 renderSwitches currentFocus target bits = 
     let activeIdx = case currentFocus of
             SwA i | target == "A" -> i
             SwB i | target == "B" -> i
             _ -> -1
-        msbFirst = reverse bits
-        
-        -- Normal switches use [ ], focused switch uses { }
-        strs = [ (if activeIdx == i then "{" else "[") ++ 
-                 (if b == One then "X" else " ") ++ 
-                 (if activeIdx == i then "}" else "]") 
-               | (i, b) <- zip [7,6..0] msbFirst ]
-    in unwords strs
+    in tightRow [ drawSwitch activeIdx i b | (i, b) <- zip [7,6..0] (reverse bits) ]
+  where
+    drawSwitch activeIdx i b = 
+        let switchChar = if b == One then "\xF17F9" else "\xF0E8B"
+            baseTxt = " " ++ switchChar ++ "\x200B "
+        in if activeIdx == i 
+           then withColor ColorBrightCyan $ withStyle (StyleBold <> StyleUnderline) $ text baseTxt
+           else text baseTxt
 
+-- Renders the full structured dashboard.
 renderView :: AppModel -> L
 renderView model = 
-    -- Unpack the bytes for rendering
     let (Byte bitsA) = byteA model
         (Byte bitsB) = byteB model
         resByte = add (byteA model) (byteB model)
         (Byte resBits) = resByte
     in layout
-    [ box "Haskell Logic Circuit Simulator"
-        [ text $ "Mode: " ++ show (mode model)
-        , text "-----------------------------------------"
+    [ -- Wrap the main box in padding and a double border
+      pad 1 $ withBorder BorderDouble $ box "Haskell Logic Circuit Simulator"
+        [ withStyle StyleBold $ text $ "Mode: " ++ show (mode model)
+        , withColor ColorBrightBlack $ text "------------------------------------------------"
         
-        , text "[ Register A ]"
-        , text $ "  LEDs:     " ++ renderBits bitsA
-        , text $ "  Switches: " ++ renderSwitches (focus model) "A" bitsA
+        , withColor ColorBrightGreen $ text "[ Register A ]"
+        , row [ text "  LEDs:     ", renderBits bitsA ]
+        , row [ text "  Switches: ", renderSwitches (focus model) "A" bitsA ]
         , row [ text $ if focus model == NumA then "  Numeric: >" else "  Numeric:  "
               , let val = strA model ++ if focus model == NumA then "_" else "" 
-                in text (if null val then " " else val) 
+                in if focus model == NumA 
+                   then withColor ColorBrightCyan $ text (if null val then " " else val) 
+                   else text (if null val then " " else val) 
               ]
         , text " "
         
-        , text "[ Register B ]"
-        , text $ "  LEDs:     " ++ renderBits bitsB
-        , text $ "  Switches: " ++ renderSwitches (focus model) "B" bitsB
+        , withColor ColorBrightGreen $ text "[ Register B ]"
+        , row [ text "  LEDs:     ", renderBits bitsA ]
+        , row [ text "  Switches: ", renderSwitches (focus model) "A" bitsA ]
         , row [ text $ if focus model == NumB then "  Numeric: >" else "  Numeric:  "
               , let val = strB model ++ if focus model == NumB then "_" else "" 
-                in text (if null val then " " else val) 
+                in if focus model == NumB 
+                   then withColor ColorBrightCyan $ text (if null val then " " else val) 
+                   else text (if null val then " " else val) 
               ]
-        , text "-----------------------------------------"
+        , withColor ColorBrightBlack $ text "------------------------------------------------"
         
-        , text "[ ALU Output ]"
-        , text $ "  LEDs:     " ++ renderBits resBits
+        , withColor ColorBrightRed $ text "[ ALU Output ]"
+        , row [ text "  LEDs:     ", renderBits resBits ]
         , text $ "  Numeric:  " ++ show (getNumericValue (mode model) resByte)
         ]
     , br
-    , ul [ "Controls:"
-         , "  [Tab]         Switch Focus (Num A -> Sw A -> Num B -> Sw B)"
-         , "  [Left/Right]  Move Switch Cursor (when focused on switches)"
-         , "  [Space]       Toggle Switch      (when focused on switches)"
+    -- Dim the controls block to keep focus on the simulation
+    , withColor ColorBrightBlack $ ul 
+         [ "Controls:"
+         , "  [Tab]         Switch Focus"
+         , "  [Left/Right]  Move Switch Cursor"
+         , "  [Space]       Toggle Switch"
          , "  [m]           Change Mode"
          , "  [ESC]         Quit Simulator"
          ]
