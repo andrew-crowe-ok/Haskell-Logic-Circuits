@@ -17,13 +17,9 @@ import qualified System.Console.Terminal.Size as Term (size, Window(width, heigh
 -- 1. MODEL
 --------------------------------------------------------------------------------
 
-data AppMode = UnsignedAdd | SignedAdd deriving (Eq, Enum, Bounded)
+data AppMode = UnsignedAdd | SignedAdd deriving (Eq, Show, Enum, Bounded)
 
 data DisplayBase = Dec | Hex | Oct deriving (Eq, Show, Enum, Bounded)
-
-instance Show AppMode where
-    show UnsignedAdd = "Unsigned Addition"
-    show SignedAdd   = "Signed Addition"
 
 data Focus = NumA | SwA Int | NumB | SwB Int deriving (Eq, Show)
 
@@ -77,6 +73,29 @@ formatValue Dec n = show n
 formatValue Hex n = "0x" ++ showHex (if n < 0 then n + 256 else n) ""
 formatValue Oct n = "0o" ++ showOct (if n < 0 then n + 256 else n) ""
 
+largeDigit :: Char -> [String]
+largeDigit '0' = [" _ ", "| |", "|_|"]
+largeDigit '1' = ["   ", "  |", "  |"]
+largeDigit '2' = [" _ ", " _|", "|_ "]
+largeDigit '3' = [" _ ", " _|", " _|"]
+largeDigit '4' = ["   ", "|_|", "  |"]
+largeDigit '5' = [" _ ", "|_ ", " _|"]
+largeDigit '6' = [" _ ", "|_ ", "|_|"]
+largeDigit '7' = [" _ ", "  |", "  |"]
+largeDigit '8' = [" _ ", "|_|", "|_|"]
+largeDigit '9' = [" _ ", "|_|", " _|"]
+largeDigit '-' = ["   ", " _ ", "   "]
+largeDigit '_' = ["   ", "   ", " _ "]
+largeDigit 'x' = ["   ", "\\ /", "/ \\"]
+largeDigit 'o' = ["   ", " _ ", "|_|"]
+largeDigit 'a' = [" _ ", "|_|", "| |"]
+largeDigit 'b' = ["   ", "|_ ", "|_|"]
+largeDigit 'c' = [" _ ", "|  ", "|_ "]
+largeDigit 'd' = ["   ", " _|", "|_|"]
+largeDigit 'e' = [" _ ", "|_ ", "|_ "]
+largeDigit 'f' = [" _ ", "|_ ", "|  "]
+largeDigit ' ' = ["   ", "   ", "   "]
+largeDigit _   = ["???", "???", "???"]
 
 --------------------------------------------------------------------------------
 -- 2. ACTIONS
@@ -144,21 +163,6 @@ handleAction action model = case action of
                 SwB i -> SwB (i + 1)
         in (model { focus = prevFocus }, CmdNone)
 
-    ToggleSwitch ->
-        let toggle b = if b == One then Zero else One
-            getBit idx (Byte bits) = bits !! idx 
-            m' = case focus model of
-                    SwA i -> let newByte = setBitAt i (toggle (getBit i (byteA model))) (byteA model)
-                             in model { byteA = newByte, strA = syncFromByte (mode model) (displayBase model) newByte }
-                    SwB i -> let newByte = setBitAt i (toggle (getBit i (byteB model))) (byteB model)
-                             in model { byteB = newByte, strB = syncFromByte (mode model) (displayBase model) newByte }
-                    _     -> model
-            logMsg = case focus model of
-                SwA i -> "> BUS INTERRUPT: REG A BIT " ++ show i ++ " TOGGLED"
-                SwB i -> "> BUS INTERRUPT: REG B BIT " ++ show i ++ " TOGGLED"
-                _     -> "> BUS INTERRUPT: SWITCH TOGGLED"
-        in (recordActivity m' logMsg, CmdNone)
-
     ToggleMode ->
         let newMode = if mode model == UnsignedAdd then SignedAdd else UnsignedAdd
             m' = model { mode = newMode
@@ -176,36 +180,47 @@ handleAction action model = case action of
                        }
         in (m', CmdNone)
 
+    ToggleSwitch ->
+        let toggle b = if b == One then Zero else One
+            getBit idx (Byte bits) = bits !! idx
+        in case focus model of
+            SwA i -> let newByte = setBitAt i (toggle (getBit i (byteA model))) (byteA model)
+                         m' = model { byteA = newByte, strA = syncFromByte (mode model) (displayBase model) newByte }
+                     in (recordActivity m' ("> BUS INTERRUPT: REG A BIT " ++ show i ++ " TOGGLED"), CmdNone)
+            SwB i -> let newByte = setBitAt i (toggle (getBit i (byteB model))) (byteB model)
+                         m' = model { byteB = newByte, strB = syncFromByte (mode model) (displayBase model) newByte }
+                     in (recordActivity m' ("> BUS INTERRUPT: REG B BIT " ++ show i ++ " TOGGLED"), CmdNone)
+            _     -> (model, CmdNone)
+
     AdjustValue delta ->
-        let m' = case focus model of
-                NumA -> let current = getNumericValue (mode model) (byteA model)
-                            newVal = current + delta
-                            clamped = case mode model of
-                                UnsignedAdd -> max 0 (min 255 newVal)
-                                SignedAdd   -> max (-128) (min 127 newVal)
-                            newByte = int2byteSigned clamped
-                        in model { byteA = newByte, strA = syncFromByte (mode model) (displayBase model) newByte }
-                NumB -> let current = getNumericValue (mode model) (byteB model)
-                            newVal = current + delta
-                            clamped = case mode model of
-                                UnsignedAdd -> max 0 (min 255 newVal)
-                                SignedAdd   -> max (-128) (min 127 newVal)
-                            newByte = int2byteSigned clamped
-                        in model { byteB = newByte, strB = syncFromByte (mode model) (displayBase model) newByte }
-                _ -> model
-            logMsg = case focus model of
-                 NumA -> "> DATA ENTRY: REG A VALUE SHIFTED"
-                 NumB -> "> DATA ENTRY: REG B VALUE SHIFTED"
-                 _    -> "> DATA ENTRY: VALUE SHIFTED"
-        in (recordActivity m' logMsg, CmdNone)
+        case focus model of
+            NumA -> let current = getNumericValue (mode model) (byteA model)
+                        newVal = current + delta
+                        clamped = case mode model of
+                            UnsignedAdd -> max 0 (min 255 newVal)
+                            SignedAdd   -> max (-128) (min 127 newVal)
+                        newByte = int2byteSigned clamped
+                        m' = model { byteA = newByte, strA = syncFromByte (mode model) (displayBase model) newByte }
+                    in (recordActivity m' "> DATA ENTRY: REG A VALUE SHIFTED", CmdNone)
+            NumB -> let current = getNumericValue (mode model) (byteB model)
+                        newVal = current + delta
+                        clamped = case mode model of
+                            UnsignedAdd -> max 0 (min 255 newVal)
+                            SignedAdd   -> max (-128) (min 127 newVal)
+                        newByte = int2byteSigned clamped
+                        m' = model { byteB = newByte, strB = syncFromByte (mode model) (displayBase model) newByte }
+                    in (recordActivity m' "> DATA ENTRY: REG B VALUE SHIFTED", CmdNone)
+            _    -> (model, CmdNone)
 
     TypeChar c ->
-        let m' = case focus model of
-                NumA -> let ns = strA model ++ [c] in model { strA = ns, byteA = syncFromStr ns }
-                NumB -> let ns = strB model ++ [c] in model { strB = ns, byteB = syncFromStr ns }
-                _ -> model
-            logMsg = "> BUS INTERRUPT: REGISTER STATE ALTERED"
-        in (recordActivity m' logMsg, CmdNone)
+        case focus model of
+            NumA -> let ns = strA model ++ [c] 
+                        m' = model { strA = ns, byteA = syncFromStr ns }
+                    in (recordActivity m' "> BUS INTERRUPT: REGISTER STATE ALTERED", CmdNone)
+            NumB -> let ns = strB model ++ [c] 
+                        m' = model { strB = ns, byteB = syncFromStr ns }
+                    in (recordActivity m' "> BUS INTERRUPT: REGISTER STATE ALTERED", CmdNone)
+            _    -> (model, CmdNone)
 
     Backspace ->
         let m' = case focus model of
@@ -299,22 +314,36 @@ renderSwitches foc target bits =
     draw activeIdx i b =
         let isON = b == One
             char = if isON then "█" else "▄"
-            col  = if isON then ColorTrue 0 255 255 else ColorTrue 60 60 60
+            col  = if isON then ColorTrue 180 180 180 else ColorTrue 60 60 60
             lBracket = if activeIdx == i then withStyle StyleBold $ withColor ColorBrightWhite (text " [") else withColor (ColorTrue 60 60 60) (text "  ")
             rBracket = if activeIdx == i then withStyle StyleBold $ withColor ColorBrightWhite (text "] ") else withColor (ColorTrue 60 60 60) (text "  ")
             swChar   = if activeIdx == i then withStyle StyleBold $ withColor ColorBrightWhite (text char) else withColor col (text char)
         in tightRow [lBracket, swChar, rBracket]
 
-renderDigitalDisplay :: Bool -> String -> L
-renderDigitalDisplay isFocused str =
-    let displayStr = str ++ (if isFocused then "_" else "")
-        padded = replicate (5 - length displayStr) ' ' ++ displayStr
-        bracketL = withColor (ColorTrue 60 60 60) $ text "  [ "
-        bracketR = withColor (ColorTrue 60 60 60) $ text " ]"
-        content = if isFocused
-                  then withStyle StyleBold $ withColor (ColorTrue 255 176 0) $ text padded
-                  else withColor (ColorTrue 150 100 0) $ text padded
-    in tightRow [ bracketL, content, bracketR ]
+renderDigitalDisplay :: Int -> Bool -> String -> L -> [L]
+renderDigitalDisplay currentF isFocused str appendRight =
+    let safeStr = if null str then " " else str
+        -- Blinks every ~500ms (5 frames)
+        cursorChar = if isFocused && (currentF `mod` 10 < 5) then "_" else " "
+        displayStr = safeStr ++ cursorChar
+        
+        padded = replicate (max 0 (5 - length displayStr)) ' ' ++ displayStr
+        matrices = map largeDigit padded
+
+        getRow i m = if length m > i then m !! i else "   "
+
+        row1 = unwords (map (getRow 0) matrices)
+        row2 = unwords (map (getRow 1) matrices)
+        row3 = unwords (map (getRow 2) matrices)
+
+        col = if isFocused then ColorTrue 255 176 0 else ColorTrue 150 100 0
+        
+        -- Increased left padding to 12 spaces for better centering under the switches
+        formatRow r ext = tightRow [ text "                         ", withStyle StyleBold $ withColor col $ text r, text "   ", ext ]
+    in [ formatRow row1 (text " ")
+       , formatRow row2 appendRight
+       , formatRow row3 (text " ")
+       ]
 
 renderModeSwitch :: AppMode -> L
 renderModeSwitch m = 
@@ -343,27 +372,43 @@ renderStatusBar foc base =
        "  STATUS: " ++ targetInfo ++ " | " ++ baseInfo
 
 renderSystemLights :: Int -> Int -> L
-renderSystemLights currentF lastF = 
-    let isActive = currentF - lastF < 4 -- Flash for ~400ms
-        pwrCol = withColor (ColorTrue 0 200 0) (text "● PWR")
-        actCol = if isActive 
-                 then withStyle StyleBold $ withColor (ColorTrue 255 255 0) (text "● BUS") 
+renderSystemLights currentF lastF =
+    let isActive = currentF - lastF < 4 
+        -- Fix GHC-18042: Explicit type for the pulse calculation
+        pulse :: Double
+        pulse = sin (fromIntegral currentF * 0.3)
+        gVal  = round $ 177 + (78 * pulse)
+        
+        pwrCol = withStyle StyleBold $ withColor (ColorTrue 0 gVal 0) (text "● PWR")
+        actCol = if isActive
+                 then withStyle StyleBold $ withColor (ColorTrue 255 255 0) (text "● BUS")
                  else withColor (ColorTrue 60 60 0) (text "● BUS")
-    in tightRow [ pwrCol, text "  ", actCol ]
+                 
+        -- Hardware clock metronome ticking state
+        clockStates = ["-", "\\", "|", "/"]
+        clockChar = clockStates !! ((currentF `div` 2) `mod` 4)
+        clkCol = withStyle StyleBold $ withColor (ColorTrue 0 150 150) (text $ "  CLK [" ++ clockChar ++ "]")
+        
+    in tightRow [ pwrCol, text "  ", actCol, clkCol ]
 
 renderView :: AppModel -> L
-renderView model = 
+renderView model =
     let (Byte bitsA) = byteA model
         (Byte bitsB) = byteB model
-        resByte = add (byteA model) (byteB model)
-        (Byte resBits) = resByte
+        -- resByte removed to fix -Wunused-local-binds
         isOV = checkOverflow (mode model) (byteA model) (byteB model)
 
-        w = 62 
+        w = 72
         centerTxt s = let p = max 0 (w - length s) `div` 2 in replicate p ' ' ++ s ++ replicate (w - length s - p) ' '
 
-        thickDivider = withColor (ColorTrue 50 50 50) $ text (replicate w '▀')
-        thinDivider  = withColor (ColorTrue 50 50 50) $ text (replicate w '─')
+        thickDivider = withColor (ColorTrue 50 50 50) $ text (replicate w '▓')
+        
+        busDivider label =
+            let str = "[ " ++ label ++ " ]"
+                remLen = max 0 (w - length str)
+                leftChars = replicate (remLen `div` 2) '═'
+                rightChars = replicate (remLen - (remLen `div` 2)) '═'
+            in withColor (ColorTrue 180 180 180) $ text (leftChars ++ str ++ rightChars)
 
         renderHeader title =
             let titleSpacing = "  " ++ title ++ "  "
@@ -376,44 +421,52 @@ renderView model =
                , withColor (ColorTrue 50 50 50) $ text rightBlocks
                ]
 
+        ovfLight = if isOV then withStyle StyleBold $ withColor (ColorTrue 255 0 0) (text "● OVF") else withColor (ColorTrue 40 0 0) (text "● OVF")
+
     in layout
-    [ pad 1 $ withBorder BorderDouble $ box " VECTRONIX SYSTEMS : MAINFRAME 2000 "
+    [ pad 1 $ withBorder BorderDouble $ box " (+) ≡≡ VECTRONIX SYSTEMS : MAINFRAME 2000 ≡≡ (+) " $
         [ tightRow [ text "   ", renderSystemLights (frame model) (lastInputFrame model) ]
+        , text " "
         , text $ centerTxt "MODE SELECTOR"
         , renderModeSwitch (mode model)
-        , thickDivider
         
+        , text " " -- Vertical space
+        , withStyle StyleBold $ busDivider "I/O DATA BUS"
+        , thickDivider
+
         , renderHeader "REGISTER A"
-        , tightRow [ text "   ", renderBits (frame model) bitsA (decayA model) ]
-        , tightRow [ text "   ", renderSwitches (focus model) "A" bitsA ]
-        , renderDigitalDisplay (focus model == NumA) (strA model)
-        
-        , thinDivider
-        
+        , tightRow [ text "                ", renderBits (frame model) bitsA (decayA model) ]
+        , tightRow [ text "                ", renderSwitches (focus model) "A" bitsA ]
+        ] ++ renderDigitalDisplay (frame model) (focus model == NumA) (strA model) (text " ") ++
+        [ thickDivider
+
         , renderHeader "REGISTER B"
-        , tightRow [ text "   ", renderBits (frame model) bitsB (decayB model) ]
-        , tightRow [ text "   ", renderSwitches (focus model) "B" bitsB ]
-        , renderDigitalDisplay (focus model == NumB) (strB model)
-        
-        , thickDivider
-        
+        , tightRow [ text "                ", renderBits (frame model) bitsB (decayB model) ]
+        , tightRow [ text "                ", renderSwitches (focus model) "B" bitsB ]
+        ] ++ renderDigitalDisplay (frame model) (focus model == NumB) (strB model) (text " ") ++
+        [ thickDivider
+
         , renderHeader "ALU ACCUMULATOR"
-        , tightRow [ text "   ", renderAluBits (frame model) (aluDisplayBits model) (decayALU model) ]
-        , tightRow 
-            [ renderDigitalDisplay False (formatValue (displayBase model) (getNumericValue (mode model) resByte))
-            , text "      "
-            , if isOV then withStyle StyleBold $ withColor (ColorTrue 255 0 0) (text "● OVF") else withColor (ColorTrue 40 0 0) (text "● OVF") 
-            ]
+        , tightRow [ text "                ", renderAluBits (frame model) (aluDisplayBits model) (decayALU model) ]
         
+        -- ALU readout uses aluDisplayBits to sync with the green LED propagation delay
+        ] ++ renderDigitalDisplay (frame model) False (formatValue (displayBase model) (getNumericValue (mode model) (Byte (aluDisplayBits model)))) ovfLight ++
+        [ text " " -- Vertical space
+        , withStyle StyleBold $ withColor (ColorTrue 180 180 180) $ busDivider "DIAGNOSTIC LOGIC BUS"
         , thickDivider
-        
+
         , renderHeader "SYSTEM LOG"
-        , withColor (ColorTrue 0 100 0) $ box "" (map text (reverse $ logLines model))
-        
-        -- Relocated Status Bar inside the hardware chassis
+        , let padLog s = s ++ replicate (max 0 (w - 4 - length s)) ' '
+              logContent = if null (logLines model)
+                           then [text $ padLog "  > SYSTEM AWAITING INPUT..."]
+                           else map (text . padLog) (reverse $ logLines model)
+          in withColor (ColorTrue 0 100 0) $ box " " logContent
+
+        , text " " -- Vertical space
+        , withStyle StyleBold $ withColor (ColorTrue 180 180 180) $ busDivider "STATE MONITOR"
         , renderStatusBar (focus model) (displayBase model)
         ]
-    , withColor ColorBrightBlack $ text "  [Tab] Next | [b] Prev | [Space] Toggle | [m] Mode | [h] Base | [q] Quit"
+    , withStyle StyleBold $ withColor ColorBrightWhite $ text "  [Tab] Next | [b] Prev | [Space] Toggle | [m] Mode | [h] Base | [q] Quit"
     ]
 
 --------------------------------------------------------------------------------
