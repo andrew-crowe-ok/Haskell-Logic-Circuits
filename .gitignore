@@ -1,4 +1,5 @@
 .vscode/tasks.json
 .vscode/changelists.json
 /dist-newstyle/
+.dist-newstyle
 *.swp
