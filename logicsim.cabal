@@ -1,0 +1,23 @@
+cabal-version:      3.0
+name:               logicsim
+version:            0.1.0.0
+build-type:         Simple
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  Classes, Bit, Byte, Gates, Circuits, Memory, Utils
+    build-depends:    base >= 4.7 && < 5, mtl
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+executable logic-sim
+    import:           warnings
+    main-is:          Main.hs
+    other-modules:    TUI
+    build-depends:    base, logicsim, layoutz, terminal-size
+    hs-source-dirs:   app
+    default-language: Haskell2010
+    ghc-options:      -threaded

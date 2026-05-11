@@ -2,27 +2,27 @@
 Contains basic arithmetic circuits built from simulated gates.
 -}
 
-module Logic.Circuits where
+module Circuits where
 
-import Prelude hiding (not, and, or)
-import Logic.Types
-import Logic.Gates
+import Prelude hiding ( not, and, or )
+import Bit ( Bit(Zero) )
+import Gates ( not, and, or, xor )
 
 
 -- Uses XOR and AND to generate a sum bit and carry bit. Outputs [sum, carry].
-halfAdder :: Bit -> Bit -> [Bit]
-halfAdder x y = (xor x y) : (and x y) : []
+halfAdder :: Bit -> Bit -> (Bit, Bit)
+halfAdder x y = (xor x y, and x y)
 
 
 -- Uses halfAdder and an OR gate to handle 2-bit sums with carries. Outputs [sum, carry].
-fullAdder :: Bit -> Bit -> Bit -> [Bit]
+fullAdder :: Bit -> Bit -> Bit -> (Bit, Bit)
 fullAdder x y cIn =
-    let
-        [s1, c1]   = halfAdder x y
-        [sOut, c2] = halfAdder s1 cIn
-        cOut       = or c1 c2
-    in
-        [sOut, cOut]
+  let
+    (s1, c1)   = halfAdder x y
+    (sOut, c2) = halfAdder s1 cIn
+    cOut       = or c1 c2
+  in
+    (sOut, cOut)
 
 
 -- Accepts a carry bit and two lists of n Bits, recursively generates their [Bit] sum.
@@ -32,11 +32,9 @@ rippleAddN c [] (y:ys)     = rippleAddN c [Zero] (y:ys)
 rippleAddN c (x:xs) []     = rippleAddN c (x:xs) [Zero]
 rippleAddN c [] []         = [c]
 rippleAddN c (x:xs) (y:ys) =
-    let
-        [sN, cN] = fullAdder x y c
-        recurse  = rippleAddN cN xs ys
-    in
-        sN : recurse        
+  let (sN, cN) = fullAdder x y c
+      recurse  = rippleAddN cN xs ys
+  in  sN : recurse
 
 
 
@@ -44,18 +42,14 @@ rippleAddN c (x:xs) (y:ys) =
 ---- CIRCUITS NOT CURRENTLY IN USE
 
 mux :: Bit -> Bit -> Bit -> Bit
-mux x y s = 
-    let
-        and1 = and x $ not s
-        and2 = and s y
-    in
-        or and1 and2
+mux x y s =
+  let and1 = and x $ not s
+      and2 = and s y
+  in or and1 and2
 
 
 crossbar :: Bit -> Bit -> Bit -> (Bit, Bit)
-crossbar x1 x2 s = 
-    let
-        y1 = mux x1 x2 s
-        y2 = mux x2 x1 s
-    in
-        (y1, y2)
+crossbar x1 x2 s =
+  let y1 = mux x1 x2 s
+      y2 = mux x2 x1 s
+  in (y1, y2)
