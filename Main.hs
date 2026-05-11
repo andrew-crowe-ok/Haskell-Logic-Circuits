@@ -10,6 +10,7 @@ import Classes ( Arithmetic(add) )
 import System.IO (hSetEncoding, hSetBuffering, hSetEcho, stdout, stdin, utf8, BufferMode(..))
 import System.Exit (exitFailure)
 import Numeric (showHex, showOct)
+import Control.Concurrent (threadDelay)
 import qualified System.Console.Terminal.Size as Term (size, Window(width, height))
 
 --------------------------------------------------------------------------------
@@ -37,6 +38,9 @@ data AppModel = AppModel
     , frame          :: Int
     , lastInputFrame :: Int
     , logLines       :: [String]
+    , decayA         :: [Int]
+    , decayB         :: [Int]
+    , decayALU       :: [Int]
     }
 
 checkOverflow :: AppMode -> Byte -> Byte -> Bool
@@ -96,7 +100,14 @@ data AppAction
 handleAction :: AppAction -> AppModel -> (AppModel, Cmd AppAction)
 handleAction action model = case action of
     Quit             -> (model, CmdExit)
-    AnimTick         -> (model { frame = frame model + 1 }, CmdNone)
+    AnimTick ->
+        let newF = frame model + 1
+            updateDecay (Byte bits) decays = zipWith (\b d -> if b == One then newF else d) bits decays
+            resByte = add (byteA model) (byteB model)
+            newDecayA = updateDecay (byteA model) (decayA model)
+            newDecayB = updateDecay (byteB model) (decayB model)
+            newDecayALU = updateDecay resByte (decayALU model)
+        in (model { frame = newF, decayA = newDecayA, decayB = newDecayB, decayALU = newDecayALU }, CmdNone)
     CycleFocusForward ->
         let nextFocus = case focus model of
                 SwA 0 -> NumA
@@ -195,6 +206,7 @@ recordActivity m msg =
 handleSubs :: AppModel -> Sub AppAction
 handleSubs _ = subBatch
     [ subKeyPress $ \key -> case key of
+        KeyChar 'q'  -> Just Quit
         KeyChar 'm'  -> Just ToggleMode
         KeyChar ' '  -> Just ToggleSwitch
         KeyEscape    -> Just Quit
@@ -213,37 +225,49 @@ handleSubs _ = subBatch
 -- 5. VIEW
 --------------------------------------------------------------------------------
 
-renderBits :: Int -> [Bit] -> L
-renderBits f bits = tightRow $ map draw (reverse bits)
+renderBits :: Int -> [Bit] -> [Int] -> L
+renderBits currentF bits decays = tightRow $ map draw (reverse (zip bits decays))
   where
     pulse :: Double
-    pulse = sin (fromIntegral f * 0.3)
+    pulse = sin (fromIntegral currentF * 0.3)
     rVal  :: Int
     rVal  = round $ 177 + (78 * pulse)
-    draw One  = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
-                         , withStyle StyleBold $ withColor (ColorTrue rVal 0 0) (text "●")
-                         , withColor (ColorTrue 60 60 60) (text "] ")
-                         ]
-    draw Zero = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
-                         , withColor (ColorTrue 40 0 0) (text "●")
-                         , withColor (ColorTrue 60 60 60) (text "] ")
-                         ]
 
-renderAluBits :: Int -> [Bit] -> L
-renderAluBits f bits = tightRow $ map draw (reverse bits)
+    draw (One, _) = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
+                             , withStyle StyleBold $ withColor (ColorTrue rVal 0 0) (text "●")
+                             , withColor (ColorTrue 60 60 60) (text "] ")
+                             ]
+    draw (Zero, lastOnF) =
+        let diff = currentF - lastOnF
+            ghostCol = if diff <= 1 then ColorTrue 140 0 0
+                       else if diff == 2 then ColorTrue 90 0 0
+                       else ColorTrue 40 0 0
+        in tightRow [ withColor (ColorTrue 60 60 60) (text " [")
+                    , withColor ghostCol (text "●")
+                    , withColor (ColorTrue 60 60 60) (text "] ")
+                    ]
+
+renderAluBits :: Int -> [Bit] -> [Int] -> L
+renderAluBits currentF bits decays = tightRow $ map draw (reverse (zip bits decays))
   where
     pulse :: Double
-    pulse = sin (fromIntegral f * 0.3)
+    pulse = sin (fromIntegral currentF * 0.3)
     gVal  :: Int
     gVal  = round $ 177 + (78 * pulse)
-    draw One  = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
-                         , withStyle StyleBold $ withColor (ColorTrue 0 gVal 0) (text "⬤")
-                         , withColor (ColorTrue 60 60 60) (text "] ")
-                         ]
-    draw Zero = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
-                         , withColor (ColorTrue 0 40 0) (text "⬤")
-                         , withColor (ColorTrue 60 60 60) (text "] ")
-                         ]
+
+    draw (One, _) = tightRow [ withColor (ColorTrue 60 60 60) (text " [")
+                             , withStyle StyleBold $ withColor (ColorTrue 0 gVal 0) (text "⬤")
+                             , withColor (ColorTrue 60 60 60) (text "] ")
+                             ]
+    draw (Zero, lastOnF) =
+        let diff = currentF - lastOnF
+            ghostCol = if diff <= 1 then ColorTrue 0 140 0
+                       else if diff == 2 then ColorTrue 0 90 0
+                       else ColorTrue 0 40 0
+        in tightRow [ withColor (ColorTrue 60 60 60) (text " [")
+                    , withColor ghostCol (text "⬤")
+                    , withColor (ColorTrue 60 60 60) (text "] ")
+                    ]
 
 renderSwitches :: Focus -> String -> [Bit] -> L
 renderSwitches foc target bits =
@@ -338,21 +362,21 @@ renderView model =
         , thickDivider
         
         , renderHeader "REGISTER A"
-        , tightRow [ text "   ", renderBits (frame model) bitsA ]
+        , tightRow [ text "   ", renderBits (frame model) bitsA (decayA model) ]
         , tightRow [ text "   ", renderSwitches (focus model) "A" bitsA ]
         , renderDigitalDisplay (focus model == NumA) (strA model)
         
         , thinDivider
         
         , renderHeader "REGISTER B"
-        , tightRow [ text "   ", renderBits (frame model) bitsB ]
+        , tightRow [ text "   ", renderBits (frame model) bitsB (decayB model) ]
         , tightRow [ text "   ", renderSwitches (focus model) "B" bitsB ]
         , renderDigitalDisplay (focus model == NumB) (strB model)
         
         , thickDivider
         
         , renderHeader "ALU ACCUMULATOR"
-        , tightRow [ text "   ", renderAluBits (frame model) resBits ]
+        , tightRow [ text "   ", renderAluBits (frame model) resBits (decayALU model) ]
         , tightRow 
             [ renderDigitalDisplay False (formatValue (displayBase model) (getNumericValue (mode model) resByte))
             , text "      "
@@ -367,7 +391,7 @@ renderView model =
         -- Relocated Status Bar inside the hardware chassis
         , renderStatusBar (focus model) (displayBase model)
         ]
-    , withColor ColorBrightBlack $ text "  [Tab] Next | [b] Prev | [Space] Toggle | [m] Mode | [h] Base | [ESC] Quit"
+    , withColor ColorBrightBlack $ text "  [Tab] Next | [b] Prev | [Space] Toggle | [m] Mode | [h] Base | [q] Quit"
     ]
 
 --------------------------------------------------------------------------------
@@ -384,35 +408,57 @@ getInitialSize = do
 
 logicSimApp :: LayoutzApp AppModel AppAction
 logicSimApp = LayoutzApp
-    { appInit = (AppModel (int2byteSigned 0) (int2byteSigned 0) "0" "0" UnsignedAdd NumA Dec 0 0 [], CmdNone)
+    { appInit = (AppModel (int2byteSigned 0) (int2byteSigned 0) "0" "0" UnsignedAdd NumA Dec 0 0 [] (replicate 8 0) (replicate 8 0) (replicate 8 0), CmdNone)
     , appUpdate = handleAction, appSubscriptions = handleSubs, appView = renderView
     }
+
+runPostSequence :: IO ()
+runPostSequence = do
+    let delayMs ms = threadDelay (ms * 1000)
+    putStrLn "VECTRONIX SYSTEMS BIOS v1.04"
+    delayMs 1200
+    putStr "MEMORY CHECK "
+    delayMs 600
+    putStrLn "OK [640K]"
+    delayMs 900
+    putStr "INITIALIZING I/O BUS "
+    delayMs 1500
+    putStrLn "OK"
+    delayMs 600
+    putStr "MOUNTING LOGIC PROCESSOR "
+    delayMs 1800
+    putStrLn "OK"
+    delayMs 900
+    putStrLn "SYSTEM READY. TRANSFERRING CONTROL TO FRONT PANEL..."
+    delayMs 2400
 
 main :: IO ()
 main = do
     hSetEncoding stdout utf8
     hSetEncoding stdin utf8
     hSetBuffering stdin NoBuffering
-    -- Use BlockBuffering to flush the entire frame at once, reducing tearing
-    hSetBuffering stdout (BlockBuffering Nothing) 
     hSetEcho stdin False
 
-     -- Check terminal size once at launch
     (w, _) <- getInitialSize
 
     if w < 64
         then do
             putStrLn $ "Error: Terminal is too narrow (" ++ show w ++ " columns)."
-            putStrLn "The Logic Circuit Simulator requires at least 64 columns."
-            putStrLn "Please zoom out or expand your window and restart."
             exitFailure
         else do
-            putStr "\ESC[?25l"   -- Hide cursor
-            putStr "\ESC[?1049h" -- Enter alternate screen buffer (isolates UI)
-            putStr "\ESC[?7l"    -- Disable line wrapping (prevents vertical layout breakage)
+            putStr "\ESC[?25l"
+            putStr "\ESC[?1049h"
+            putStr "\ESC[?7l"
+            putStr "\ESC[2J\ESC[H"
 
+            -- Use NoBuffering so the POST sequence prints as it happens
+            hSetBuffering stdout NoBuffering
+            runPostSequence
+
+            -- Switch to BlockBuffering right before the TUI starts to prevent flicker
+            hSetBuffering stdout (BlockBuffering Nothing)
             runApp logicSimApp
 
-            putStr "\ESC[?7h"    -- Restore line wrapping
-            putStr "\ESC[?1049l" -- Exit alternate screen buffer
-            putStr "\ESC[?25h"   -- Restore cursor
+            putStr "\ESC[?7h"
+            putStr "\ESC[?1049l"
+            putStr "\ESC[?25h"
